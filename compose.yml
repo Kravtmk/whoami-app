@@ -1,0 +1,14 @@
+services:
+  api:
+    build: ./backend
+    container_name: whoami-api
+    env_file:
+     - .env
+    ports:
+     - "${APP_PORT}:8000"
+    volumes:
+      - whoami_data:/data
+    restart: unless-stopped
+
+volumes:
+  whoami_data:

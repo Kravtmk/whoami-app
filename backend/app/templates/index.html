@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WhoAmI — quick log</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 12px; }
+    input, select, button { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; }
+    pre { background: #f4f4f4; padding: 12px; overflow:auto; }
+    .row { display:flex; gap:12px; }
+    .row > * { flex:1; }
+  </style>
+</head>
+<body>
+  <h2>WhoAmI — быстрый лог</h2>
+
+  <div class="row">
+    <input id="userId" value="u3" placeholder="userId">
+    <button onclick="loadToday()">Обновить</button>
+  </div>
+
+  <select id="roleId"></select>
+
+  <div class="row">
+    <input id="minutes" type="number" min="0" max="1440" value="25" />
+    <button onclick="add()">Добавить</button>
+  </div>
+
+  <input id="note" placeholder="note (опционально)" />
+
+  <h3>Today</h3>
+  <pre id="out">loading...</pre>
+
+<script>
+const apiBase = ""; // тот же хост
+
+async function loadRoles(){
+  const res = await fetch(`${apiBase}/roles`);
+  const roles = await res.json();
+  const sel = document.getElementById('roleId');
+  sel.innerHTML = roles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+}
+
+async function loadToday(){
+  const userId = document.getElementById('userId').value.trim();
+  const res = await fetch(`${apiBase}/today?userId=${encodeURIComponent(userId)}`);
+  const data = await res.json();
+  document.getElementById('out').textContent = JSON.stringify(data, null, 2);
+}
+
+async function add(){
+  const userId = document.getElementById('userId').value.trim();
+  const roleId = Number(document.getElementById('roleId').value);
+  const minutes = Number(document.getElementById('minutes').value);
+  const note = document.getElementById('note').value.trim();
+
+  const payload = { roleId, minutes, note };
+
+  const res = await fetch(`${apiBase}/today/segment?userId=${encodeURIComponent(userId)}`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+  document.getElementById('out').textContent = JSON.stringify(data, null, 2);
+}
+
+(async () => {
+  await loadRoles();
+  await loadToday();
+})();
+</script>
+</body>
+</html>
