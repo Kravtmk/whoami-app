@@ -10,5 +10,12 @@ services:
       - whoami_data:/data
     restart: unless-stopped
 
+  bot:
+    build: ./bot
+    container_name: whoami-bot
+    env_file: .env
+    depends_on:
+      - api
+
 volumes:
   whoami_data:
