@@ -9,6 +9,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 import os
+from .db import init_db
+
+init_db()
 
 
 app = FastAPI(title="WhoAmI API", version="0.1.0")
@@ -80,6 +83,9 @@ def save_roles(items: List[Role]) -> None:
 
 roles: List[Role] = load_roles()
 
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
