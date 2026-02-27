@@ -16,6 +16,15 @@ services:
     env_file: .env
     depends_on:
       - api
+  
+  whoami-ai:
+    build: ./backend/ai-service
+    env_file: .env
+    environment:
+     - GROQ_API_KEY=${GROQ_API_KEY}
+    ports:
+     - "8001:8001"
+    restart: unless-stopped
 
 volumes:
   whoami_data:

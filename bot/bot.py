@@ -1,25 +1,26 @@
 import os
 import requests
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 API = os.environ.get("API_BASE_URL", "http://api:8000").rstrip("/")
+AI_API = os.environ.get("AI_API_URL", "http://whoami-ai:8001").rstrip("/")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "WhoAmI bot online 😎\n"
+        "🦝 Енот Рикки на связи!\n"
         "Команды:\n"
         "/today <userId>\n"
-        "/add <userId> <roleId> <minutes>\n"
-        "Пример: /add u1 1 25"
+        "/add <userId> <roleId> <minutes>\n\n"
+        "Или просто напиши мне что-нибудь!"
     )
+
 
 async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 1:
         await update.message.reply_text("Пример: /today u1")
         return
-
     user_id = context.args[0]
     r = requests.get(f"{API}/today", params={"userId": user_id}, timeout=10)
     r.raise_for_status()
@@ -36,6 +37,7 @@ async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Other: {summary.get('other')}%\n"
     )
     await update.message.reply_text(msg)
+
 
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 3:
@@ -61,7 +63,27 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("today", today))
     app.add_handler(CommandHandler("add", add))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), chat))
     app.run_polling()
+
+
+async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    text = update.message.text
+
+    try:        
+        response = requests.post(
+            f"{AI_API}/chat", 
+            json={"user_id": user_id, "text": text},
+            timeout=10
+        )
+        response.raise_for_status()
+        reply = response.json().get("reply", "Енот задумался...")
+        await update.message.reply_text(reply)
+    except Exception as e:
+        print(f"AI Error: {e}")
+        await update.message.reply_text("🦝🔌 Ой, я отвлекся на аранчини... попробуй еще раз!")
+
 
 if __name__ == "__main__":
     main()
