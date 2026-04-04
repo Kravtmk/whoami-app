@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 import os
-from .db import init_db
+from .db import init_db, get_connection,upsert_user, get_user_by_telegram_id
 
 init_db()
 
@@ -20,6 +20,18 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 DATA_DIR = Path(os.getenv("DATA_DIR", "/data"))
 ROLES_FILE = DATA_DIR / os.getenv("ROLES_FILE", "roles.json")
 DAYS_FILE = DATA_DIR / os.getenv("DAYS_FILE", "days.json")
+
+
+class UserUpsert(BaseModel):
+    telegramId: int
+    displayName: Optional[str] = None
+
+
+class UserOut(BaseModel):
+    id: int
+    telegramId: int
+    displayName: Optional[str] = None
+
 
 class Segment(BaseModel):
     roleId: int
@@ -122,14 +134,22 @@ def delete_role(role_id: int):
     return {"deleted": deleted.model_dump()}
 
 @app.get("/today")
-def get_today(userId: str):
+def get_today(userId: int):
+    # гарантируем, что user есть
+    u = get_user_by_telegram_id(userId)
+    if not u:
+        u = upsert_user(userId, None)
+
+    # TODO: тут пока у тебя старая логика load_days/save_days
+    # (позже заменим на day_logs/segments из SQLite)
+
     days = load_days()
     key = f"{userId}:{today_str()}"
 
     if key in days:
         log = DayLog(**days[key])
     else:
-        log = DayLog(userId=userId, day=today_str())
+        log = DayLog(userId=str(userId), day=today_str())
 
     other = calc_other_minutes(log)
     total = 24 * 60
@@ -138,6 +158,11 @@ def get_today(userId: str):
         return round(mins * 100 / total)
 
     return {
+        "user": {
+            "id": u["id"],
+            "telegramId": u["telegram_id"],
+            "displayName": u["display_name"],
+        },
         "log": log.model_dump(),
         "otherMinutes": other,
         "summaryPercent": {
@@ -170,3 +195,13 @@ def add_segment(userId: str, seg: Segment):
     days[key] = log.model_dump()
     save_days(days)
     return {"ok": True, "log": log.model_dump(), "otherMinutes": calc_other_minutes(log)}
+
+
+@app.post("/users/upsert", response_model=UserOut)
+def users_upsert(payload: UserUpsert):
+    u = upsert_user(payload.telegramId, payload.displayName)
+    return {
+        "id": u["id"],
+        "telegramId": u["telegram_id"],
+        "displayName": u["display_name"],
+    }

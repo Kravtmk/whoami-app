@@ -3,6 +3,8 @@ import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
+
+
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 API = os.environ.get("API_BASE_URL", "http://api:8000").rstrip("/")
 AI_API = os.environ.get("AI_API_URL", "http://whoami-ai:8001").rstrip("/")
@@ -16,26 +18,49 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Или просто напиши мне что-нибудь!"
     )
 
-
-async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 1:
-        await update.message.reply_text("Пример: /today u1")
+def upsert_user_from_update(update: Update):
+    tg = update.effective_user
+    if not tg:
         return
-    user_id = context.args[0]
-    r = requests.get(f"{API}/today", params={"userId": user_id}, timeout=10)
+
+    telegram_id = tg.id
+    display_name = tg.full_name  # или tg.first_name
+
+    requests.post(
+        f"{API}/users/upsert",
+        json={"telegramId": telegram_id, "displayName": display_name},
+        timeout=10,
+    )
+    
+async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    telegram_id = update.effective_user.id
+    display_name = update.effective_user.full_name
+
+    r = requests.get(
+        f"{API}/today",
+        params={
+            "telegramId": telegram_id,
+            "displayName": display_name
+        },
+        timeout=10
+    )
+
     r.raise_for_status()
     data = r.json()
 
     other = data.get("otherMinutes")
     summary = data.get("summaryPercent", {})
+
     msg = (
-        f"📅 Today for {user_id}\n"
+        f"📅 Today\n"
         f"Other minutes: {other}\n"
         f"Sleep: {summary.get('sleep')}%\n"
         f"Buffer: {summary.get('buffer')}%\n"
         f"Tracked: {summary.get('tracked')}%\n"
         f"Other: {summary.get('other')}%\n"
     )
+
     await update.message.reply_text(msg)
 
 
